@@ -350,35 +350,72 @@ final class AppState: ObservableObject {
 
     /// Returns an error message on failure, nil on success. Mirrors Android doLogin.
     func doLogin(base: String, user: String, pass: String) async -> String? {
-        do {
-            var b = base.trimmingCharacters(in: .whitespaces)
-            if b.isEmpty { b = "http://127.0.0.1:5244" }
-            if !b.hasPrefix("http://") && !b.hasPrefix("https://") {
-                let host = b.split(whereSeparator: { $0 == "/" || $0 == ":" }).first.map(String.init)?.lowercased() ?? ""
-                let ipv4 = regexMatch(#"^\d{1,3}(\.\d{1,3}){3}$"#, in: host) != nil
-                let useHttp = host == "127.0.0.1" || host == "localhost" || host.hasSuffix(".internal") || ipv4
-                b = (useHttp ? "http://" : "https://") + b
-            }
-            let r = Renamer(baseUrlRaw: b, username: user, password: pass)
+        var b = base.trimmingCharacters(in: .whitespaces)
+        if b.isEmpty { b = "http://127.0.0.1:5244" }
+        if !b.hasPrefix("http://") && !b.hasPrefix("https://") {
+            let host = b.split(whereSeparator: { $0 == "/" || $0 == ":" }).first.map(String.init)?.lowercased() ?? ""
+            let ipv4 = regexMatch(#"^\d{1,3}(\.\d{1,3}){3}$"#, in: host) != nil
+            let useHttp = host == "127.0.0.1" || host == "localhost" || host.hasSuffix(".internal") || ipv4
+            b = (useHttp ? "http://" : "https://") + b
+        }
+        // Try the primary scheme first, then the other one: the scheme guess
+        // is often wrong for self-hosted servers (e.g. a public hostname
+        // serving plain http, or an https-only host typed as http).
+        var candidates = [b]
+        if b.hasPrefix("http://") { candidates.append("https://" + String(b.dropFirst("http://".count))) }
+        else if b.hasPrefix("https://") { candidates.append("http://" + String(b.dropFirst("https://".count))) }
+        var lastError: String?
+        for cand in candidates {
+            let r = Renamer(baseUrlRaw: cand, username: user, password: pass)
             loadToken(r)
-            let hasToken = r.token != nil
-            var ok = false
-            if hasToken { ok = await r.validateCurrentUser() }
-            if !ok { ok = try await r.login() }
-            if ok {
-                saveToken(r)
-                renamer = r
-                self.user = user
-                openlistOk = true
-                loggedIn = true
-                defaults.set(b, forKey: "base_url")
-                defaults.set(user, forKey: "username")
-                defaults.set(pass, forKey: "password")
-                return nil
+            if r.token != nil, await r.validateCurrentUser() {
+                return succeedLogin(r, base: cand, user: user, pass: pass)
             }
-            return "登录失败，请检查账号密码"
-        } catch {
-            return error.localizedDescription
+            do {
+                if try await r.login() {
+                    return succeedLogin(r, base: cand, user: user, pass: pass)
+                }
+                // Server answered but credentials were rejected: the scheme
+                // is right, retrying the other one cannot help.
+                return "登录失败，请检查账号密码"
+            } catch {
+                // Network-level failure: remember it and try the other scheme.
+                lastError = friendlyError(error)
+            }
+        }
+        return lastError ?? "登录失败，请检查账号密码"
+    }
+
+    /// Shared success path for doLogin: persist the working base URL + token.
+    private func succeedLogin(_ r: Renamer, base: String, user: String, pass: String) -> String? {
+        saveToken(r)
+        renamer = r
+        self.user = user
+        openlistOk = true
+        loggedIn = true
+        defaults.set(base, forKey: "base_url")
+        defaults.set(user, forKey: "username")
+        defaults.set(pass, forKey: "password")
+        return nil
+    }
+
+    /// Turn a URLSession failure into a message that says what actually broke.
+    private func friendlyError(_ error: Error) -> String {
+        guard let urlError = error as? URLError else { return error.localizedDescription }
+        switch urlError.code {
+        case .appTransportSecurityRequiresSecureConnection:
+            return "iOS 拦截了 http 连接：请更新到最新版，或把地址改成 https://"
+        case .cannotConnectToHost, .cannotFindHost:
+            return "连不上服务器：检查地址对不对、服务器有没有在跑"
+        case .timedOut:
+            return "连接超时：服务器没响应，检查地址和网络"
+        case .secureConnectionFailed, .serverCertificateUntrusted,
+             .serverCertificateHasBadDate, .serverCertificateNotYetValid:
+            return "https 证书有问题：试试把地址改成 http://"
+        case .notConnectedToInternet:
+            return "iPad 没有联网"
+        default:
+            return urlError.localizedDescription
         }
     }
 }
