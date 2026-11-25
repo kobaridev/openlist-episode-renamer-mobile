@@ -24,18 +24,35 @@ jobs:
 
       - name: Build (unsigned, for sideloading)
         run: |
+          set -o pipefail
           xcodebuild -project ios/OpenListRenamer.xcodeproj \
             -scheme OpenListRenamer \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
-            | xcpretty || exit ${PIPESTATUS[0]}
+            | tee build.log | xcpretty
+
+      - name: Show raw build errors
+        if: failure()
+        run: |
+          grep -B2 -A6 -i "error" build.log | head -120 || true
+
+      - name: Upload raw build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build.log
+          if-no-files-found: error
 
       - name: Package IPA
         run: |
           APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)
           echo "App bundle: $APP"
+          test -n "$APP" || { echo "No .app found"; exit 1; }
+          test -f "$APP/Info.plist" || { echo "Info.plist missing — build did not produce a real app"; exit 1; }
+          test -f "$APP/OpenListRenamer" || { echo "App executable missing — build did not produce a real app"; exit 1; }
           rm -rf Payload OpenListRenamer.ipa
           mkdir -p Payload
           cp -r "$APP" Payload/
