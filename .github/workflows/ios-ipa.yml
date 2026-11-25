@@ -1,0 +1,50 @@
+# Build unsigned IPA on a cloud Mac (for sideloading via SideStore / AltStore)
+name: Build IPA
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ipa.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          ls /Applications | grep -i xcode
+          sudo xcode-select -s /Applications/Xcode_16.2.app 2>/dev/null \
+            || sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Build (unsigned, for sideloading)
+        run: |
+          xcodebuild -project ios/OpenListRenamer.xcodeproj \
+            -scheme OpenListRenamer \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            | xcpretty || exit ${PIPESTATUS[0]}
+
+      - name: Package IPA
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)
+          echo "App bundle: $APP"
+          rm -rf Payload OpenListRenamer.ipa
+          mkdir -p Payload
+          cp -r "$APP" Payload/
+          zip -r OpenListRenamer.ipa Payload
+          ls -la OpenListRenamer.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenListRenamer-ipa
+          path: OpenListRenamer.ipa
+          if-no-files-found: error
