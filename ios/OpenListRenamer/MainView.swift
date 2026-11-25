@@ -263,7 +263,7 @@ struct MainView: View {
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.capsule)
                     Button(action: { showConfirm = true }) {
-                        Label("重命名", systemImage: "textformat")
+                        Label("重命名", systemImage: "square.and.pencil")
                             .font(.subheadline)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -277,7 +277,7 @@ struct MainView: View {
                         .foregroundColor(.secondary)
                     Spacer()
                     Button(action: { if store.renameableCount > 0 { showConfirm = true } }) {
-                        Label("重命名", systemImage: "textformat")
+                        Label("重命名", systemImage: "square.and.pencil")
                             .font(.subheadline)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -437,50 +437,57 @@ struct FileRowView: View {
     }
 }
 
-// MARK: - Poster grid (3 columns on iPad, shared by panel + single-file sheet)
+// MARK: - Search results (vertical list, same as Android: thumb + title + year)
 
-struct PosterGridView: View {
+struct PosterResultsView: View {
     @EnvironmentObject var store: AppState
     let results: [TmdbResult]
     let selectedId: Int?
-    let columns: Int
     let onTap: (TmdbResult) -> Void
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: columns), spacing: 12) {
+        VStack(spacing: 8) {
             ForEach(results) { res in
                 let selected = selectedId == res.id
                 Button(action: { onTap(res) }) {
-                    VStack(spacing: 6) {
-                        ZStack(alignment: .topTrailing) {
-                            PosterImage(urlString: res.poster)
-                                .aspectRatio(2 / 3, contentMode: .fill)
-                                .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .background(Color(.systemGray5))
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                            if selected {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.appPrimary)
-                                    .background(Color.white.clipShape(Circle()))
-                                    .padding(4)
+                    HStack(spacing: 12) {
+                        PosterImage(urlString: res.poster)
+                            .frame(width: 56, height: 84)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .background(Color(.systemGray5))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(res.name)
+                                .font(.subheadline)
+                                .bold(selected)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            Text(res.year + (store.mediaType == "movie" ? " · 电影" : " · 剧集"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            if !res.overview.isEmpty {
+                                Text(res.overview)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
                             }
                         }
-                        Text(res.name)
-                            .font(.caption)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity, minHeight: 28, alignment: .top)
-                        Text(res.year + (store.mediaType == "movie" ? " · 电影" : " · 剧集"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        Spacer()
+                        if selected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.appPrimary)
+                                .font(.system(size: 22))
+                        }
                     }
+                    .padding(8)
+                    .background(selected ? Color.appContainer : Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(selected ? Color.appPrimary : Color.clear, lineWidth: 1.5)
+                    )
                 }
                 .buttonStyle(.plain)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(selected ? Color.appPrimary : Color.clear, lineWidth: 2)
-                )
             }
         }
     }
@@ -490,10 +497,8 @@ struct PosterGridView: View {
 
 struct ToolsPanel: View {
     @EnvironmentObject var store: AppState
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var searchTask: Task<Void, Never>?
 
-    private var gridColumns: Int { sizeClass == .regular ? 4 : 3 }
     @State private var seasonTask: Task<Void, Never>?
     @State private var customParam = ""
 
@@ -531,21 +536,25 @@ struct ToolsPanel: View {
                              placeholder: store.mediaType == "movie" ? "TMDB 搜索电影名" : "TMDB 搜索剧名",
                              height: 48) { Task { await doSearch() } }
                 Button(action: { Task { await doSearch() } }) {
-                    if store.tmdbSearching {
-                        ProgressView().frame(width: 22, height: 22)
-                    } else {
-                        Image(systemName: "magnifyingglass").font(.system(size: 18))
+                    Group {
+                        if store.tmdbSearching {
+                            ProgressView().frame(width: 22, height: 22)
+                        } else {
+                            Image(systemName: "magnifyingglass").font(.system(size: 18))
+                        }
                     }
+                    .frame(width: 48, height: 48)
+                    .background(Color.appPrimary)
+                    .foregroundColor(.white)
+                    .clipShape(Circle())
+                    .contentShape(Circle())
                 }
-                .frame(width: 48, height: 48)
-                .background(Color.appPrimary)
-                .foregroundColor(.white)
-                .clipShape(Circle())
+                .buttonStyle(.plain)
                 .disabled(store.tmdbSearching)
             }
 
             if !store.tmdbResults.isEmpty {
-                PosterGridView(results: store.tmdbResults, selectedId: store.tmdbSelected?.id, columns: gridColumns) { res in
+                PosterResultsView(results: store.tmdbResults, selectedId: store.tmdbSelected?.id) { res in
                     store.tmdbSelected = res
                     Task { await fetchSelectedEpisodes() }
                 }
@@ -783,20 +792,24 @@ struct EditSheet: View {
                                      placeholder: store.mediaType == "movie" ? "搜索电影名，只填这一行" : "搜索剧名，只填这一行",
                                      height: 44) { Task { await doSingleSearch() } }
                         Button(action: { Task { await doSingleSearch() } }) {
-                            if singleSearching {
-                                ProgressView().frame(width: 20, height: 20)
-                            } else {
-                                Image(systemName: "magnifyingglass").font(.system(size: 17))
+                            Group {
+                                if singleSearching {
+                                    ProgressView().frame(width: 20, height: 20)
+                                } else {
+                                    Image(systemName: "magnifyingglass").font(.system(size: 17))
+                                }
                             }
+                            .frame(width: 44, height: 44)
+                            .background(Color.appPrimary)
+                            .foregroundColor(.white)
+                            .clipShape(Circle())
+                            .contentShape(Circle())
                         }
-                        .frame(width: 44, height: 44)
-                        .background(Color.appPrimary)
-                        .foregroundColor(.white)
-                        .clipShape(Circle())
+                        .buttonStyle(.plain)
                         .disabled(singleSearching)
                     }
                     if !singleResults.isEmpty {
-                        PosterGridView(results: singleResults, selectedId: nil, columns: 3) { res in
+                        PosterResultsView(results: singleResults, selectedId: nil) { res in
                             applySingleResult(res)
                         }
                     }

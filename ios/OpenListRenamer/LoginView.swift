@@ -66,18 +66,22 @@ struct LoginView: View {
                     }
 
                     Button(action: attempt) {
-                        if busy {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text("连接").bold()
+                        Group {
+                            if busy {
+                                ProgressView().tint(.white)
+                            } else {
+                                Text("连接").bold()
+                            }
                         }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.appPrimary)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                        .contentShape(Capsule())
                     }
+                    .buttonStyle(.plain)
                     .disabled(busy)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color.appPrimary)
-                    .foregroundColor(.white)
-                    .clipShape(Capsule())
 
                     Spacer(minLength: 24)
 
