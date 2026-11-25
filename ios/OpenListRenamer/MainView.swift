@@ -24,7 +24,7 @@ struct MainView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let contentWidth = isWide ? min(geo.size.width, 980) : geo.size.width
+            let contentWidth = geo.size.width
             ZStack(alignment: .bottom) {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -443,14 +443,15 @@ struct PosterGridView: View {
     @EnvironmentObject var store: AppState
     let results: [TmdbResult]
     let selectedId: Int?
+    let columns: Int
     let onTap: (TmdbResult) -> Void
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110, maximum: 150), spacing: 10)], spacing: 12) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: columns), spacing: 12) {
             ForEach(results) { res in
                 let selected = selectedId == res.id
                 Button(action: { onTap(res) }) {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         ZStack(alignment: .topTrailing) {
                             PosterImage(urlString: res.poster)
                                 .aspectRatio(2 / 3, contentMode: .fill)
@@ -469,7 +470,7 @@ struct PosterGridView: View {
                             .font(.caption)
                             .lineLimit(2)
                             .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
+                            .frame(maxWidth: .infinity, minHeight: 28, alignment: .top)
                         Text(res.year + (store.mediaType == "movie" ? " · 电影" : " · 剧集"))
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -489,7 +490,10 @@ struct PosterGridView: View {
 
 struct ToolsPanel: View {
     @EnvironmentObject var store: AppState
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var searchTask: Task<Void, Never>?
+
+    private var gridColumns: Int { sizeClass == .regular ? 4 : 3 }
     @State private var seasonTask: Task<Void, Never>?
     @State private var customParam = ""
 
@@ -541,7 +545,7 @@ struct ToolsPanel: View {
             }
 
             if !store.tmdbResults.isEmpty {
-                PosterGridView(results: store.tmdbResults, selectedId: store.tmdbSelected?.id) { res in
+                PosterGridView(results: store.tmdbResults, selectedId: store.tmdbSelected?.id, columns: gridColumns) { res in
                     store.tmdbSelected = res
                     Task { await fetchSelectedEpisodes() }
                 }
@@ -792,7 +796,7 @@ struct EditSheet: View {
                         .disabled(singleSearching)
                     }
                     if !singleResults.isEmpty {
-                        PosterGridView(results: singleResults, selectedId: nil) { res in
+                        PosterGridView(results: singleResults, selectedId: nil, columns: 3) { res in
                             applySingleResult(res)
                         }
                     }
