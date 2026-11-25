@@ -87,7 +87,7 @@ struct CompactField: View {
         TextField(placeholder, text: text)
             .focused($focused)
             .keyboardType(numeric ? .numberPad : .default)
-            .submitLabel(onSubmit == nil ? .default : .search)
+            .submitLabel(onSubmit == nil ? .return : .search)
             .onSubmit { onSubmit?() }
             .frame(height: height)
             .padding(.horizontal, 12)

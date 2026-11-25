@@ -1147,8 +1147,9 @@ struct ConfirmRenameView: View {
                 if !alive { _ = await store.relogin() }
             }
             var okCount = 0
+            let currentPath = store.currentPath
             func fullPath(_ name: String) -> String {
-                store.currentPath == "/" ? "/\(name)" : "\(store.currentPath)/\(name)"
+                currentPath == "/" ? "/\(name)" : "\(currentPath)/\(name)"
             }
             for r in changes {
                 let base = store.previewBase(r)

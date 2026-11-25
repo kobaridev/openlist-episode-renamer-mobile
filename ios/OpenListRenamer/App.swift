@@ -362,7 +362,10 @@ final class AppState: ObservableObject {
             let r = Renamer(baseUrlRaw: b, username: user, password: pass)
             loadToken(r)
             let hasToken = r.token != nil
-            if (hasToken && (await r.validateCurrentUser())) || (try await r.login()) {
+            var ok = false
+            if hasToken { ok = await r.validateCurrentUser() }
+            if !ok { ok = try await r.login() }
+            if ok {
                 saveToken(r)
                 renamer = r
                 self.user = user
