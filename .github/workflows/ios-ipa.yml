@@ -18,9 +18,13 @@ jobs:
       - name: Select Xcode
         run: |
           ls /Applications | grep -i xcode
-          sudo xcode-select -s /Applications/Xcode_16.2.app 2>/dev/null \
-            || sudo xcode-select -s /Applications/Xcode.app
+          # Default Xcode first: its simulator runtimes match the image.
+          # Xcode 16.2's SDK has no matching runtime on this image, which
+          # makes asset-catalog compilation (actool) fail.
+          sudo xcode-select -s /Applications/Xcode.app 2>/dev/null \
+            || sudo xcode-select -s /Applications/Xcode_16.2.app
           xcodebuild -version
+          xcrun simctl runtime list 2>/dev/null | head -20 || true
 
       - name: Build (unsigned, for sideloading)
         run: |
