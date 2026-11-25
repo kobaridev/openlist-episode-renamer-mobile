@@ -20,9 +20,10 @@ struct LoginView: View {
         GeometryReader { geo in
             ScrollView {
                 VStack(spacing: 16) {
-                    // Login logo: drawn in code (blue gradient tile + file card + play
-                    // triangle + S01E01), mirroring the Android app-icon artwork.
-                    LoginLogo()
+                    // Login logo: same image as the Android login page.
+                    Image("LoginLogo")
+                        .resizable()
+                        .scaledToFill()
                         .frame(width: 108, height: 108)
                         .clipShape(RoundedRectangle(cornerRadius: 28))
                         .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color(.systemGray4), lineWidth: 1))

@@ -28,6 +28,7 @@ struct MainView: View {
             ZStack(alignment: .bottom) {
                 ScrollView {
                     LazyVStack(spacing: 0) {
+                        Color.clear.frame(height: geo.safeAreaInsets.top)
                         header
                         breadcrumbs
                         toolsToggle
@@ -42,7 +43,7 @@ struct MainView: View {
                     }
                     .frame(width: contentWidth)
                     .frame(maxWidth: .infinity)
-                    .padding(.bottom, 170)
+                    .padding(.bottom, 185)
                 }
                 bottomBars
                     .padding(.horizontal, 14)
@@ -445,7 +446,7 @@ struct PosterGridView: View {
     let onTap: (TmdbResult) -> Void
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 12) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110, maximum: 150), spacing: 10)], spacing: 12) {
             ForEach(results) { res in
                 let selected = selectedId == res.id
                 Button(action: { onTap(res) }) {

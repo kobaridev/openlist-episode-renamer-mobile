@@ -131,30 +131,6 @@ struct DiffText: View {
     }
 }
 
-// MARK: - Login logo (drawn, mirrors the Android icon artwork)
-
-struct LoginLogo: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color(hex: 0x2E7CF6), Color(hex: 0x0B57D0)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-            VStack(spacing: 6) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white)
-                        .frame(width: 56, height: 40)
-                    Image(systemName: "play.fill")
-                        .foregroundColor(.appPrimary)
-                        .font(.system(size: 16))
-                }
-                Text("S01E01")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-            }
-        }
-    }
-}
-
 // MARK: - shields.io-style two-tone badge (login screen)
 
 struct ShieldBadge: View {
