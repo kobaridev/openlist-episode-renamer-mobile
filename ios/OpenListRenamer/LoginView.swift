@@ -41,21 +41,13 @@ struct LoginView: View {
                     }
 
                     VStack(spacing: 12) {
-                        TextField("服务器地址", text: $url, prompt: Text("例如 192.168.1.10:5244"))
-                            .textFieldStyle(.roundedBorder)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .keyboardType(.URL)
+                        loginField(icon: "cloud", placeholder: "服务器地址", prompt: "例如 192.168.1.10:5244", text: $url, keyboard: .URL)
                         Text("连电脑上的 OpenList 请填局域网 IP，如 192.168.1.10:5244；127.0.0.1 指 iPad 自己")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        TextField("用户名", text: $username)
-                            .textFieldStyle(.roundedBorder)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        SecureField("密码", text: $password)
-                            .textFieldStyle(.roundedBorder)
+                        loginField(icon: "person", placeholder: "用户名", text: $username)
+                        loginField(icon: "lock", placeholder: "密码", text: $password, isSecure: true)
                     }
 
                     if let error = error {
@@ -113,6 +105,33 @@ struct LoginView: View {
             if password.isEmpty { password = defaults.string(forKey: "password") ?? "" }
             if canAutoLogin { attempt() }
         }
+    }
+
+
+    // Text field with a leading icon (same icons as the Android login screen).
+    private func loginField(icon: String, placeholder: String, prompt: String? = nil,
+                           text: Binding<String>, keyboard: UIKeyboardType = .default,
+                           isSecure: Bool = false) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+            Group {
+                if isSecure {
+                    SecureField(placeholder, text: text, prompt: prompt.map { Text($0) })
+                } else {
+                    TextField(placeholder, text: text, prompt: prompt.map { Text($0) })
+                }
+            }
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .keyboardType(keyboard)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 48)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.systemGray4), lineWidth: 1))
     }
 
     private func attempt() {

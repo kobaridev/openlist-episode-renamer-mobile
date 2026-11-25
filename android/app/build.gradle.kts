@@ -6,7 +6,7 @@ plugins {
 android {
     namespace = "dev.kobari.renamer"
     compileSdk = 34
-    defaultConfig { applicationId = "dev.kobari.renamer"; minSdk = 26; targetSdk = 34; versionCode = 24; versionName = "3.3" }
+    defaultConfig { applicationId = "dev.kobari.renamer"; minSdk = 26; targetSdk = 34; versionCode = 25; versionName = "3.4" }
     buildTypes { release { isMinifyEnabled = false } }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

@@ -795,46 +795,33 @@ fun MainScreen(state: AppState, prefs: SharedPreferences) {
                     }
                 }
                 if (singleResults.isNotEmpty()) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(singleResults) { res ->
-                            Column(Modifier.width(80.dp).clickable {
-                                editing.title = res.name
-                                if (state.mediaType == "movie") {
-                                    editing.year = res.year
-                                    state.syncEpisodes()
-                                    scope.launch { snackbar.showSnackbar("已填入电影名", duration = SnackbarDuration.Short) }
-                                } else {
-                                    state.syncEpisodes()
-                                    scope.launch {
-                                        try {
-                                            val season = editing.season.toIntOrNull() ?: 1
-                                            val eps = withContext(Dispatchers.IO) {
-                                                when (state.scrapeSource) {
-                                                    "tvmaze" -> tvmazeEpisodes(res.id, season)
-                                                    "tmdb" -> state.renamer!!.tmdbFetch(res.id, season, state.tmdbApiKey.trim()).first
-                                                    else -> try { state.renamer!!.tmdbFetch(res.id, season, state.tmdbApiKey.trim()).first }
-                                                        catch (e: Exception) {
-                                                            val alt = tvmazeSearch(res.name).firstOrNull()
-                                                            if (alt != null) tvmazeEpisodes(alt.id, season) else emptyMap()
-                                                        }
+                    SearchResultList(singleResults, null, state.mediaType == "movie") { res ->
+                        editing.title = res.name
+                        if (state.mediaType == "movie") {
+                            editing.year = res.year
+                            state.syncEpisodes()
+                            scope.launch { snackbar.showSnackbar("已填入电影名", duration = SnackbarDuration.Short) }
+                        } else {
+                            state.syncEpisodes()
+                            scope.launch {
+                                try {
+                                    val season = editing.season.toIntOrNull() ?: 1
+                                    val eps = withContext(Dispatchers.IO) {
+                                        when (state.scrapeSource) {
+                                            "tvmaze" -> tvmazeEpisodes(res.id, season)
+                                            "tmdb" -> state.renamer!!.tmdbFetch(res.id, season, state.tmdbApiKey.trim()).first
+                                            else -> try { state.renamer!!.tmdbFetch(res.id, season, state.tmdbApiKey.trim()).first }
+                                                catch (e: Exception) {
+                                                    val alt = tvmazeSearch(res.name).firstOrNull()
+                                                    if (alt != null) tvmazeEpisodes(alt.id, season) else emptyMap()
                                                 }
-                                            }
-                                            val t = eps[editing.episode]
-                                            if (state.useEpisodeTitle && t != null) editing.epTitle = t.trim()
-                                            state.syncEpisodes()
-                                            snackbar.showSnackbar("已填入剧名和集名", duration = SnackbarDuration.Short)
-                                        } catch (e: Exception) { snackbar.showSnackbar("获取集名失败：${e.message}", duration = SnackbarDuration.Short) }
+                                        }
                                     }
-                                }
-                            }, horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(Modifier.size(width = 70.dp, height = 104.dp).clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)) {
-                                    if (res.poster.isNotEmpty()) PosterImage(res.poster)
-                                    else Icon(Icons.Filled.Movie, null, Modifier.align(Alignment.Center), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Text(res.name, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text(res.year + if (state.mediaType == "movie") " · 电影" else " · 剧集",
-                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val t = eps[editing.episode]
+                                    if (state.useEpisodeTitle && t != null) editing.epTitle = t.trim()
+                                    state.syncEpisodes()
+                                    snackbar.showSnackbar("已填入剧名和集名", duration = SnackbarDuration.Short)
+                                } catch (e: Exception) { snackbar.showSnackbar("获取集名失败：${e.message}", duration = SnackbarDuration.Short) }
                             }
                         }
                     }
@@ -1233,25 +1220,9 @@ fun ToolsPanel(state: AppState, snackbar: SnackbarHostState) {
             }
         }
         if (state.tmdbResults.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.tmdbResults) { res ->
-                    val selected = state.tmdbSelected?.id == res.id
-                    Column(Modifier.width(80.dp).clickable {
-                        state.tmdbSelected = res
-                        fetchSelectedEpisodes()
-                    }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(width = 70.dp, height = 104.dp).clip(RoundedCornerShape(12.dp))
-                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)) {
-                            if (res.poster.isNotEmpty()) PosterImage(res.poster)
-                            else Icon(Icons.Filled.Movie, null, Modifier.align(Alignment.Center), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (selected) Icon(Icons.Filled.CheckCircle, null, Modifier.align(Alignment.TopEnd).size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary)
-                        }
-                        Text(res.name, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(res.year + if (state.mediaType == "movie") " · 电影" else " · 剧集",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+            SearchResultList(state.tmdbResults, state.tmdbSelected?.id, state.mediaType == "movie") { res ->
+                state.tmdbSelected = res
+                fetchSelectedEpisodes()
             }
         }
         if (state.mediaType == "tv") Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1304,6 +1275,36 @@ fun PosterImage(path: String) {
     }
     if (bmp != null) androidx.compose.foundation.Image(bitmap = bmp!!.asImageBitmap(), contentDescription = null,
         modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+}
+
+// TMDB search results as a vertical list (same as the iPad build): thumb + name + year/type + overview.
+@Composable
+fun SearchResultList(results: List<TmdbResult>, selectedId: Int?, isMovie: Boolean, onPick: (TmdbResult) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        results.forEach { res ->
+            val selected = selectedId == res.id
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.5.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(12.dp))
+                .clickable { onPick(res) }
+                .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(56.dp, 84.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface)) {
+                    if (res.poster.isNotEmpty()) PosterImage(res.poster)
+                    else Icon(Icons.Filled.Movie, null, Modifier.align(Alignment.Center), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                    Text(res.name, style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (selected) FontWeight.Bold else null, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(res.year + if (isMovie) " · 电影" else " · 剧集",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (res.overview.isNotEmpty()) Text(res.overview, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                if (selected) Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
