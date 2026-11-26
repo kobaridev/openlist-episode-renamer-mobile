@@ -37,9 +37,25 @@ jobs:
           flutter pub get
           flutter build ipa --release --no-codesign
 
+      - name: Package IPA
+        # Flutter 3.50 with --no-codesign builds the .xcarchive but skips
+        # the .ipa ("Codesigning disabled with --no-codesign, skipping IPA"),
+        # so package it from the archive the same way the native workflow does.
+        run: |
+          APP=$(find flutter/build/ios/archive/Runner.xcarchive/Products/Applications -maxdepth 1 -name '*.app' | head -1)
+          echo "App bundle: $APP"
+          test -n "$APP" || { echo "No .app found in archive"; exit 1; }
+          test -f "$APP/Info.plist" || { echo "Info.plist missing — build did not produce a real app"; exit 1; }
+          test -f "$APP/Runner" || { echo "App executable missing — build did not produce a real app"; exit 1; }
+          rm -rf Payload OpenListRenamer-flutter.ipa
+          mkdir -p Payload
+          cp -r "$APP" Payload/
+          zip -r OpenListRenamer-flutter.ipa Payload
+          ls -la OpenListRenamer-flutter.ipa
+
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: OpenListRenamer-flutter-ipa
-          path: flutter/build/ios/ipa/*.ipa
+          path: OpenListRenamer-flutter.ipa
           if-no-files-found: error
