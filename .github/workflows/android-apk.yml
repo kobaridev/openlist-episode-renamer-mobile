@@ -35,13 +35,6 @@ jobs:
           yes | "$SDKMANAGER" --licenses
           "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Check Maven reachability
-        run: |
-          echo "--- AGP marker on the Gradle Plugin Portal ---"
-          curl -sI https://plugins.gradle.org/m2/com/android/application/com.android.application.gradle.plugin/8.5.2/com.android.application.gradle.plugin-8.5.2.pom | head -3
-          echo "--- AGP on Google Maven ---"
-          curl -sI https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.5.2/gradle-8.5.2.pom | head -3
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
@@ -49,7 +42,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: Verify APK
         run: |
