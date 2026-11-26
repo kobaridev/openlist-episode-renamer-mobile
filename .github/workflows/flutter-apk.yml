@@ -1,6 +1,11 @@
-# Build the Flutter debug APK on GitHub (signed with the debug keystore
+# Build the Flutter release APK on GitHub (signed with the debug keystore
 # committed in flutter/android/app/debug.keystore, so a CI-built APK
 # installs over local builds).
+#
+# NOTE: release, not debug — a debug APK is ~160 MB (three ABIs' engines
+# plus a ~100 MB JIT kernel blob, uncompressed); the release build
+# compiles AOT and strips symbols, so it lands around a dozen MB like
+# the native app.
 name: Build Flutter APK
 
 on:
@@ -46,16 +51,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: flutter
         run: |
           flutter --version
           flutter pub get
-          flutter build apk --debug
+          flutter build apk --release
 
       - name: Verify APK
         run: |
-          APK=flutter/build/app/outputs/flutter-apk/app-debug.apk
+          APK=flutter/build/app/outputs/flutter-apk/app-release.apk
           test -f "$APK" || { echo "APK not found"; exit 1; }
           ls -lh "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | grep -E "^package:"
@@ -64,5 +69,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenListRenamer-flutter-apk
-          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
+          path: flutter/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
