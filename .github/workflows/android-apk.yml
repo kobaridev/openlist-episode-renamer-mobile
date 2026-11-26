@@ -29,7 +29,7 @@ jobs:
         run: |
           ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 2 -name sdkmanager -type f | head -1)
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -name sdkmanager -type f | head -1)
           test -n "$SDKMANAGER" || { echo "sdkmanager not found under $ANDROID_HOME"; exit 1; }
           echo "sdkmanager: $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses
