@@ -102,9 +102,9 @@ class _AboutSheetState extends State<AboutSheet> {
               () => _openUrl('https://hub.131714.xyz'),
             ),
             _Link(
-              '项目仓库：github.com/KoBariDev/openlist-episode-renamer',
+              '项目仓库：github.com/kobaridev/openlist-episode-renamer-mobile',
               () => _openUrl(
-                  'https://github.com/KoBariDev/openlist-episode-renamer'),
+                  'https://github.com/kobaridev/openlist-episode-renamer-mobile'),
             ),
           ],
         ),

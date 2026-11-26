@@ -197,9 +197,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       () => _openUrl('https://github.com/KoBariDev')),
                   ShieldBadge('Blog', 'hub.131714.xyz',
                       () => _openUrl('https://hub.131714.xyz')),
-                  ShieldBadge('Repo', 'openlist-episode-renamer',
+                  ShieldBadge('Repo', 'openlist-episode-renamer-mobile',
                       () => _openUrl(
-                          'https://github.com/KoBariDev/openlist-episode-renamer')),
+                          'https://github.com/kobaridev/openlist-episode-renamer-mobile')),
                 ],
               ),
             ],
