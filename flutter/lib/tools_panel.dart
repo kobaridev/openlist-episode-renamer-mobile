@@ -130,23 +130,11 @@ class _ToolsPanelState extends State<ToolsPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Media type: TV series vs movie (Filmix-style split).
-          Row(
-            children: [
-              FilterChip(
-                selected: state.mediaType == 'tv',
-                onSelected: (_) => state.setMediaType('tv'),
-                label: const Text('剧集'),
-                avatar: const Icon(Icons.tv, size: 16),
-              ),
-              const SizedBox(width: 6),
-              FilterChip(
-                selected: state.mediaType == 'movie',
-                onSelected: (_) => state.setMediaType('movie'),
-                label: const Text('电影'),
-                avatar: const Icon(Icons.movie, size: 16),
-              ),
-            ],
-          ),
+          // NOTE: do NOT use FilterChip here — in Material 3 the selected
+          // chip replaces its icon with a checkmark in a dark circle, which
+          // looks broken and hides which option is selected. A segmented
+          // control keeps both icons always visible.
+          _MediaTypeSegmented(state: state),
           const SizedBox(height: 8),
           // Numbering row.
           if (state.mediaType == 'tv')
@@ -337,6 +325,88 @@ class _ToolsPanelState extends State<ToolsPanel> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Segmented 剧集/电影 switch. The selected segment keeps its icon visible
+/// (primary on primaryContainer); the unselected one is muted. No checkmark.
+class _MediaTypeSegmented extends StatelessWidget {
+  const _MediaTypeSegmented({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _segment(
+            context,
+            selected: state.mediaType == 'tv',
+            icon: Icons.tv,
+            label: '剧集',
+            onTap: () => state.setMediaType('tv'),
+          ),
+          const SizedBox(width: 4),
+          _segment(
+            context,
+            selected: state.mediaType == 'movie',
+            icon: Icons.movie,
+            label: '电影',
+            onTap: () => state.setMediaType('movie'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _segment(
+    BuildContext context, {
+    required bool selected,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(50),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? scheme.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(50),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: fg),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
