@@ -1,0 +1,45 @@
+# Build unsigned Flutter IPA on a cloud Mac (for sideloading via SideStore / AltStore)
+name: Build Flutter IPA
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/flutter-ipa.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          ls /Applications | grep -i xcode
+          # Default Xcode first: its simulator runtimes match the image.
+          sudo xcode-select -s /Applications/Xcode.app 2>/dev/null \
+            || sudo xcode-select -s /Applications/Xcode_16.2.app
+          xcodebuild -version
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.1'
+          channel: 'stable'
+          cache: true
+
+      - name: Build IPA (unsigned, for sideloading)
+        working-directory: flutter
+        run: |
+          flutter --version
+          flutter pub get
+          flutter build ipa --release --no-codesign
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenListRenamer-flutter-ipa
+          path: flutter/build/ios/ipa/*.ipa
+          if-no-files-found: error
