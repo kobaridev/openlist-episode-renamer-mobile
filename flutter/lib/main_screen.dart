@@ -738,20 +738,27 @@ class _MainScreenState extends State<MainScreen> {
             ],
           ),
         ),
-        body: Stack(
-          children: [
-            ListView.builder(
-              controller: _scrollCtrl,
-              itemCount: _itemCount(),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemBuilder: (context, index) => _buildItem(index),
-            ),
-            if (state.loading)
-              const Align(
-                alignment: Alignment.topCenter,
-                child: LinearProgressIndicator(),
+        // SafeArea (top only): without it the title row ("根目录") is drawn
+        // under the status bar and overlaps the status icons. The bottom
+        // is handled by bottomNavigationBar.
+        body: SafeArea(
+          top: true,
+          bottom: false,
+          child: Stack(
+            children: [
+              ListView.builder(
+                controller: _scrollCtrl,
+                itemCount: _itemCount(),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemBuilder: (context, index) => _buildItem(index),
               ),
-          ],
+              if (state.loading)
+                const Align(
+                  alignment: Alignment.topCenter,
+                  child: LinearProgressIndicator(),
+                ),
+            ],
+          ),
         ),
       ),
     );
