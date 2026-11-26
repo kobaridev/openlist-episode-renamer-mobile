@@ -12,8 +12,17 @@ on:
 jobs:
   build:
     runs-on: macos-15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' flutter/pubspec.yaml | sed 's/version: *//' | cut -d+ -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
 
       - name: Select Xcode
         run: |
@@ -59,3 +68,11 @@ jobs:
           name: OpenListRenamer-flutter-ipa
           path: OpenListRenamer-flutter.ipa
           if-no-files-found: error
+
+      - name: Publish draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: OpenList 影视重命名 v${{ steps.version.outputs.version }} (Flutter)
+          draft: true
+          files: OpenListRenamer-flutter.ipa

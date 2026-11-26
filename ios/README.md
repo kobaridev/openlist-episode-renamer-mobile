@@ -12,7 +12,7 @@ IPA 只能在 macOS + Xcode 下编译，这台 Linux 机器编不出来。本仓
 
 ## 拿 IPA 的步骤
 
-1. 把本目录内容推到你的 GitHub 仓库（例如 `kobaridev/openlist-episode-renamer` 的 `ios` 分支或单独仓库）
+1. 把本目录内容推到你的 GitHub 仓库（例如 `kobaridev/openlist-episode-renamer-mobile` 的 `ios` 分支或单独仓库）
 2. 打开仓库的 **Actions** → **Build IPA**，等跑完（约 5–10 分钟）
 3. 下载产物 **OpenListRenamer-ipa**（`OpenListRenamer.ipa`，未签名）
 4. 用 **SideStore / AltStore** 安装到 iPad（会用你自己的 Apple ID 重签名）

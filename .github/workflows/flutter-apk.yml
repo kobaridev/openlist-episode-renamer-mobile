@@ -1,11 +1,12 @@
 # Build the Flutter release APK on GitHub (signed with the debug keystore
 # committed in flutter/android/app/debug.keystore, so a CI-built APK
-# installs over local builds).
+# installs over local builds) and publish it to a draft GitHub Release.
 #
 # NOTE: release, not debug — a debug APK is ~160 MB (three ABIs' engines
 # plus a ~100 MB JIT kernel blob, uncompressed); the release build
-# compiles AOT and strips symbols, so it lands around a dozen MB like
-# the native app.
+# compiles AOT and strips symbols. Split per ABI so each APK only
+# carries one architecture (~18 MB for arm64-v8a instead of a ~50 MB
+# fat APK).
 name: Build Flutter APK
 
 on:
@@ -19,8 +20,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' flutter/pubspec.yaml | sed 's/version: *//' | cut -d+ -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -51,23 +61,35 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build release APK
+      - name: Build release APKs (split per ABI)
         working-directory: flutter
         run: |
           flutter --version
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --split-per-abi
 
-      - name: Verify APK
+      - name: Verify APKs
         run: |
-          APK=flutter/build/app/outputs/flutter-apk/app-release.apk
-          test -f "$APK" || { echo "APK not found"; exit 1; }
-          ls -lh "$APK"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | grep -E "^package:"
+          ls -lh flutter/build/app/outputs/flutter-apk/
+          for APK in flutter/build/app/outputs/flutter-apk/app-*-release.apk; do
+            test -f "$APK" || { echo "APK not found: $APK"; exit 1; }
+            "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | grep -E "^package:"
+          done
 
-      - name: Upload APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: OpenListRenamer-flutter-apk
-          path: flutter/build/app/outputs/flutter-apk/app-release.apk
+          path: flutter/build/app/outputs/flutter-apk/app-*-release.apk
           if-no-files-found: error
+
+      - name: Publish draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: OpenList 影视重命名 v${{ steps.version.outputs.version }} (Flutter)
+          draft: true
+          files: |
+            flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            flutter/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            flutter/build/app/outputs/flutter-apk/app-x86_64-release.apk
