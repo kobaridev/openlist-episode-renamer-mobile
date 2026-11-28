@@ -232,6 +232,22 @@ class _ToolsPanelState extends State<ToolsPanel> {
                 await _fetchEpisodes();
               },
             ),
+            // Source note: TVmaze only carries English/original titles,
+            // so an all-English list means TMDB didn't respond and the
+            // app fell back to TVmaze (Chinese names are matched back
+            // from TMDB where possible).
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4),
+              child: Text(
+                state.tmdbSource == 'tvmaze'
+                    ? '来源：TVmaze（仅英文名，已尽量匹配 TMDB 中文名）'
+                    : '来源：TMDB',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           ],
           if (state.mediaType == 'tv')
             Row(

@@ -103,7 +103,37 @@ class TmdbResult {
   final String overview;
   final String year;
   final String poster;
-  const TmdbResult(this.id, this.name, this.overview, this.year, this.poster);
+
+  /// Original-language title (TMDB original_name/original_title, or the
+  /// TVmaze name — TVmaze only carries the original title).
+  final String originalName;
+
+  /// TMDB id when a TVmaze result was resolved to TMDB (0 = not resolved).
+  /// The episode fetch prefers this id so episode titles come from TMDB
+  /// (Chinese) instead of TVmaze (English).
+  final int tmdbId;
+
+  const TmdbResult(this.id, this.name, this.overview, this.year, this.poster,
+      {this.originalName = '', this.tmdbId = 0});
+
+  TmdbResult copyWith({
+    int? id,
+    String? name,
+    String? overview,
+    String? year,
+    String? poster,
+    String? originalName,
+    int? tmdbId,
+  }) =>
+      TmdbResult(
+        id ?? this.id,
+        name ?? this.name,
+        overview ?? this.overview,
+        year ?? this.year,
+        poster ?? this.poster,
+        originalName: originalName ?? this.originalName,
+        tmdbId: tmdbId ?? this.tmdbId,
+      );
 }
 
 String _trimChars(String s, String chars) {
@@ -255,11 +285,12 @@ class Renamer {
 
   // ---------- TMDB (API first, scrape fallback) ----------
 
-  Future<List<TmdbResult>> tmdbApiSearch(String keyword, String apiKey) async {
+  Future<List<TmdbResult>> tmdbApiSearch(String keyword, String apiKey,
+      {int timeoutMs = 8000}) async {
     final q = Uri.encodeQueryComponent(keyword);
     final obj = jsonDecode(await Http.getText(
       'https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$q&language=zh-CN',
-      timeoutMs: 8000,
+      timeoutMs: timeoutMs,
     )) as Map<String, dynamic>;
     final results = (obj['results'] as List?) ?? const [];
     final out = <TmdbResult>[];
@@ -274,6 +305,7 @@ class Renamer {
         posterPath.isNotEmpty && posterPath != 'null'
             ? 'https://image.tmdb.org/t/p/w185$posterPath'
             : '',
+        originalName: cleanSeriesName(_optString(r, 'original_name')),
       ));
     }
     return out;
@@ -373,6 +405,7 @@ class Renamer {
         posterPath.isNotEmpty && posterPath != 'null'
             ? 'https://image.tmdb.org/t/p/w185$posterPath'
             : '',
+        originalName: cleanSeriesName(_optString(r, 'original_title')),
       ));
     }
     return out;
@@ -433,6 +466,43 @@ class Renamer {
     }
     return (await tmdbScrapeSeason(id, season), 'scrape');
   }
+
+  /// Best-effort: give a TVmaze result its TMDB Chinese title.
+  /// TVmaze only carries English/original titles, while TMDB
+  /// (language=zh-CN) has the Chinese title when one exists. Searches
+  /// TMDB by the original title and takes a confident match (same
+  /// normalized original title, and the same year when both sides have
+  /// one). Returns the input unchanged on no match or any failure —
+  /// never throws, so a dead TMDB just leaves the English name.
+  Future<TmdbResult> resolveTmdbChinese(
+      TmdbResult tvmazeResult, String apiKey) async {
+    try {
+      final cands = await tmdbApiSearch(tvmazeResult.name, apiKey,
+          timeoutMs: 5000);
+      String norm(String s) =>
+          s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final want = norm(tvmazeResult.originalName.isNotEmpty
+          ? tvmazeResult.originalName
+          : tvmazeResult.name);
+      if (want.isEmpty) return tvmazeResult;
+      TmdbResult? best;
+      for (final c in cands) {
+        if (norm(c.originalName) != want && norm(c.name) != want) continue;
+        // Same title, different year = a different show: skip it.
+        if (tvmazeResult.year.isNotEmpty &&
+            c.year.isNotEmpty &&
+            c.year != tvmazeResult.year) {
+          continue;
+        }
+        best = c;
+        break;
+      }
+      if (best == null) return tvmazeResult;
+      return tvmazeResult.copyWith(name: best.name, tmdbId: best.id);
+    } catch (_) {
+      return tvmazeResult;
+    }
+  }
 }
 
 /// TVmaze: free, no API key, generous limits — the fast fallback when TMDB
@@ -457,6 +527,8 @@ Future<List<TmdbResult>> tvmazeSearch(String keyword) async {
       _take(summary, 120),
       _take(_optString(show, 'premiered'), 4),
       img is String ? img : '',
+      // TVmaze only carries the original-language title.
+      originalName: cleanSeriesName(_optString(show, 'name')),
     ));
   }
   return out;

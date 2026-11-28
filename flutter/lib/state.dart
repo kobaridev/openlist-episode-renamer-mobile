@@ -136,6 +136,11 @@ class AppState extends ChangeNotifier {
   String tmdbKeyword = '';
   String tmdbSeason = '1';
   List<TmdbResult> tmdbResults = [];
+
+  /// Which backend produced [tmdbResults]: 'tmdb' or 'tvmaze'.
+  /// Shown under the search results so an English-only TVmaze list is
+  /// not a mystery.
+  String tmdbSource = '';
   TmdbResult? tmdbSelected;
   Map<String, String> tmdbEpisodes = {};
   bool tmdbSearching = false;
@@ -585,19 +590,26 @@ class AppState extends ChangeNotifier {
     if (mediaType == 'movie') {
       // TVmaze has no movies: movies always go through TMDB.
       raw = (await r.tmdbSearchMovie(kw, tmdbApiKey.trim())).$1;
+      tmdbSource = 'tmdb';
     } else {
       switch (scrapeSource) {
         case 'tvmaze':
           raw = await tvmazeSearch(kw);
+          raw = await _resolveChinese(raw);
+          tmdbSource = 'tvmaze';
           break;
         case 'tmdb':
           raw = (await r.tmdbSearch(kw, tmdbApiKey.trim())).$1;
+          tmdbSource = 'tmdb';
           break;
         default:
           try {
             raw = (await r.tmdbSearch(kw, tmdbApiKey.trim())).$1;
+            tmdbSource = 'tmdb';
           } catch (_) {
             raw = await tvmazeSearch(kw);
+            raw = await _resolveChinese(raw);
+            tmdbSource = 'tvmaze';
           }
       }
     }
@@ -610,6 +622,15 @@ class AppState extends ChangeNotifier {
     tmdbResults = results;
     notifyListeners();
     return results;
+  }
+
+  /// Best-effort: give TVmaze (English-only) results Chinese names via
+  /// TMDB. Lookups run concurrently and never throw, so any failure just
+  /// keeps the original English name.
+  Future<List<TmdbResult>> _resolveChinese(List<TmdbResult> raw) async {
+    final r = renamer!;
+    final key = tmdbApiKey.trim();
+    return Future.wait(raw.map((it) => r.resolveTmdbChinese(it, key)));
   }
 
   /// Fetch episode titles for the selected show/season (cached).
@@ -628,7 +649,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final season = int.tryParse(tmdbSeason) ?? 1;
-      final key = '${scrapeSource}_${res.id}_$season';
+      final key = '${scrapeSource}_${res.id}_${res.tmdbId}_$season';
       final cached = episodeCache[key];
       Map<String, String> eps;
       if (cached != null) {
@@ -637,17 +658,27 @@ class AppState extends ChangeNotifier {
         final r = renamer!;
         switch (scrapeSource) {
           case 'tvmaze':
-            eps = await tvmazeEpisodes(res.id, season);
+            // A result resolved to TMDB carries its TMDB id: use TMDB so
+            // episode titles are Chinese too.
+            eps = res.tmdbId != 0
+                ? (await r.tmdbFetch(res.tmdbId, season, tmdbApiKey.trim()))
+                    .$1
+                : await tvmazeEpisodes(res.id, season);
             break;
           case 'tmdb':
             eps = (await r.tmdbFetch(res.id, season, tmdbApiKey.trim())).$1;
             break;
           default:
             try {
-              eps =
-                  (await r.tmdbFetch(res.id, season, tmdbApiKey.trim())).$1;
+              eps = (await r.tmdbFetch(
+                      res.tmdbId != 0 ? res.tmdbId : res.id,
+                      season,
+                      tmdbApiKey.trim()))
+                  .$1;
             } catch (_) {
-              final found = await tvmazeSearch(res.name);
+              final found = await tvmazeSearch(res.originalName.isNotEmpty
+                  ? res.originalName
+                  : res.name);
               final alt = found.isEmpty ? null : found.first;
               eps = alt != null
                   ? await tvmazeEpisodes(alt.id, season)
@@ -675,6 +706,7 @@ class AppState extends ChangeNotifier {
       switch (scrapeSource) {
         case 'tvmaze':
           raw = await tvmazeSearch(kw);
+          raw = await _resolveChinese(raw);
           break;
         case 'tmdb':
           raw = (await r.tmdbSearch(kw, tmdbApiKey.trim())).$1;
@@ -684,6 +716,7 @@ class AppState extends ChangeNotifier {
             raw = (await r.tmdbSearch(kw, tmdbApiKey.trim())).$1;
           } catch (_) {
             raw = await tvmazeSearch(kw);
+            raw = await _resolveChinese(raw);
           }
       }
     }
@@ -698,14 +731,21 @@ class AppState extends ChangeNotifier {
     final r = renamer!;
     switch (scrapeSource) {
       case 'tvmaze':
-        return tvmazeEpisodes(res.id, season);
+        return res.tmdbId != 0
+            ? (await r.tmdbFetch(res.tmdbId, season, tmdbApiKey.trim())).$1
+            : tvmazeEpisodes(res.id, season);
       case 'tmdb':
         return (await r.tmdbFetch(res.id, season, tmdbApiKey.trim())).$1;
       default:
         try {
-          return (await r.tmdbFetch(res.id, season, tmdbApiKey.trim())).$1;
+          return (await r.tmdbFetch(
+                  res.tmdbId != 0 ? res.tmdbId : res.id,
+                  season,
+                  tmdbApiKey.trim()))
+              .$1;
         } catch (_) {
-          final found = await tvmazeSearch(res.name);
+          final found = await tvmazeSearch(
+              res.originalName.isNotEmpty ? res.originalName : res.name);
           final alt = found.isEmpty ? null : found.first;
           if (alt != null) return tvmazeEpisodes(alt.id, season);
           return <String, String>{};
